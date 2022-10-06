@@ -1,0 +1,138 @@
+---
+title: "p8105_hw_2_JL6047"
+author: "Eric Luo"
+date: "2022-10-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem1
+First we load the data from local files, janitor::clean it and convert Entry to a logical variable
+and specify that column 8-11 should be character in consistency with col 1-7
+
+```{r}
+library(tidyverse)
+subway_data = read_csv(file = "C:/Users/scorp/Desktop/Mailman Year 2/8105/p8105_hw2_JL6047/NYC_Transit_Subway_Entrance_And_Exit_Data.csv",
+                       col_types = cols(Route8 = "c", Route9 = "c", Route10 = "c", Route11 = "c"))%>% 
+janitor::clean_names() %>% 
+select(line, station_name, station_latitude, starts_with("route"), entry, exit_only, vending, entrance_type,ada)%>%
+mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
+select(subway_data,entry)
+skimr::skim(subway_data)
+```
+
+However, at this point the data are not tidy at this moment, and we will fix it later.
+
+distinct stations, we use distinct() and obtain 465 unique stations
+```{r}
+distinct(select(subway_data,station_name,line))
+```
+
+ADA complaint unique stations: 84
+```{r}
+subway_data %>% 
+  filter(ada == TRUE) %>% 
+  select(station_name, line) %>% 
+  distinct
+```
+
+Proportion: 0.377
+```{r}
+subway_data %>%
+  filter(vending=="NO")%>%
+  pull(entry)%>%
+  mean
+```
+
+Distincat stations for A
+```{r}
+subway_data %>% 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") %>% 
+  filter(route == "A") %>% 
+  select(station_name, line) %>% 
+  distinct
+```
+ADA compliant stations for A
+```{r}
+subway_data %>% 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") %>% 
+  filter(route == "A", ada==TRUE) %>% 
+  select(station_name, line) %>% 
+  distinct
+```
+
+#Problem2
+
+Read Mr.Trash Wheel datam, create variable names, clean and round
+
+```{r}
+library(readxl)
+TW_data = read_excel("C:/Users/scorp/Desktop/Mailman Year 2/8105/p8105_hw2_JL6047/Trash Wheel Collection Data.xlsx",sheet = "Mr. Trash Wheel",
+col_names = c(col_names = 'dump','mon','year','date','weight','vol','PB','Pol','Cig','GlassB','GroB','CB','SB','HP','',''))[2:547,1:14]%>%
+  mutate(SB= as.integer(SB))
+```
+
+Do the same thing for Professor Trash Wheel and at the same time at a line of Sports balls for reference of combining
+```{r}
+PT_data = read_excel("C:/Users/scorp/Desktop/Mailman Year 2/8105/p8105_hw2_JL6047/Trash Wheel Collection Data.xlsx",sheet= "Professor Trash Wheel",
+col_names = c(col_names = 'dump','mon','year','date','weight','vol','PB','Pol','Cig','GlassB','GroB','CB','HP'))[2:95,1:13]%>%
+mutate(SB=0)%>%
+  arrange('dump','mon','year','date','weight','vol','PB','Pol','Cig','GlassB','GroB','CB','HP','SB')
+```
+
+Add a line of wheel type and merge
+```{r}
+TW_data = mutate(TW_data,Wheel="Mr.Trash")
+PT_data = mutate (PT_data, Wheel="Professor")
+  Big_data = full_join(TW_data,PT_data)
+```
+Mr.Trash Wheel contains 546 observations of each wheel with a total weight of 1748.36 tons of trash with 22344 homes served 
+and 6879 sports balls collected
+
+While Professor Trash Wheel contains 94 observations of each wheel with a total weight of 190.12 tons with 2709 homes served
+
+The final dataset contains a total of 640 wheels for both Wheels with 25053 homes served
+
+#Problem3
+upload pols_month and clean it and make corresponding changes to the columns
+```{r}
+library(tidyverse)
+pols_month = read_csv(file="C:/Users/scorp/Desktop/Mailman Year 2/8105/p8105_hw2_JL6047/pols-month.csv")%>%
+janitor:: clean_names()%>%
+  separate(mon, c("year","month","day")) %>%
+  mutate(president = ifelse(prez_gop == "0", "dem","gop")) %>% 
+  select(-prez_dem, -prez_gop,-day)
+```
+similar applications to snp
+```{r}
+snp = read_csv(file="C:/Users/scorp/Desktop/Mailman Year 2/8105/p8105_hw2_JL6047/snp.csv")%>%
+  janitor:: clean_names()%>%
+  mutate(date = lubridate::parse_date_time2(date,orders ="mdy", cutoff_2000 = 23)) %>% 
+  separate(date, c("year","month","day")) %>%
+  select(-day)%>%
+  arrange(year,month)
+```
+upload unemployment and make changes by pivot longer
+```{r}
+unemployment = read_csv(file="C:/Users/scorp/Desktop/Mailman Year 2/8105/p8105_hw2_JL6047/unemployment.csv")%>% 
+    pivot_longer(
+    Jan:Dec,
+    names_to = "month",
+    values_to = "unemployment_rate")%>%
+    janitor:: clean_names()%>%
+```
+Createthe final merge file and merge
+```{r}
+final = left_join(pols_month,snp, by = c("year","month"))
+  left_join(final,unemployment,by= c("year","month"))
+```
+
